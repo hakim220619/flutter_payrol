@@ -1,5 +1,6 @@
 import 'package:flutpayrol/absensi/absensiPage.dart';
 import 'package:flutpayrol/cuti/cutiPage.dart';
+import 'package:flutpayrol/gaji/downloadGaji.dart';
 import 'package:flutpayrol/login/view/login.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -155,6 +156,23 @@ class _HomepageState extends State<Homepage> {
                   width: 300,
                   height: 100,
                   child: Center(child: Text('Cuti')),
+                ),
+              ),
+            ),
+            Card(
+              clipBehavior: Clip.hardEdge,
+              child: InkWell(
+                splashColor: Colors.blue.withAlpha(30),
+                onTap: () {
+                 Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const DownloadGaji()));
+                },
+                child: const SizedBox(
+                  width: 300,
+                  height: 100,
+                  child: Center(child: Text('Download Gaji')),
                 ),
               ),
             ),

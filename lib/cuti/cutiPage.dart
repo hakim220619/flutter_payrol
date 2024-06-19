@@ -112,7 +112,7 @@ class _CutiPageState extends State<CutiPage> {
           Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const AddCutiPage(),
+                builder: (context) =>  const AddCutiPage(),
               ));
           // setState(() {
           //   if (res is String) {

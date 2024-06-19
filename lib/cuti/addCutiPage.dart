@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutpayrol/cuti/cutiPage.dart';
 import 'package:flutpayrol/cuti/serviceCuti.dart';
@@ -10,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class AddCutiPage extends StatefulWidget {
   const AddCutiPage({Key? key}) : super(key: key);
@@ -18,11 +21,11 @@ class AddCutiPage extends StatefulWidget {
   _AddCutiPageState createState() => _AddCutiPageState();
 }
 
-
 class _AddCutiPageState extends State<AddCutiPage> {
   GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   // ignore: override_on_non_overriding_member
   String? imagePath1;
+  String? filePath;
 
   @override
   void dispose() {
@@ -32,6 +35,69 @@ class _AddCutiPageState extends State<AddCutiPage> {
 
   TextEditingController dari_tgl = TextEditingController();
   TextEditingController sampai_tgl = TextEditingController();
+  void checkPermissionAndOpenFilePicker() async {
+    var status = await Permission.storage.status;
+    if (status.isGranted) {
+      openFilePicker();
+    } else {
+      if (await Permission.storage.request().isGranted) {
+        openFilePicker();
+      } else {
+        // Handle denied permissions
+        print("Permission denied by user.");
+      }
+    }
+  }
+
+  void openFilePicker() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles();
+
+    if (result != null) {
+      // File picked successfully
+      File file = File(result.files.single.path!);
+      setState(() {
+        filePath = file.path;
+      });
+
+      // print(file);
+      // uploadFile(file); // Call your API function here
+    } else {
+      // User canceled the picker
+      print("User canceled the file picker.");
+    }
+  }
+
+  void uploadFile(File file) async {
+    try {
+      print(file);
+      SharedPreferences preferences = await SharedPreferences.getInstance();
+      var token = preferences.getString('token');
+      var url = Uri.parse('${dotenv.env['url']}/cuti');
+      var request = http.MultipartRequest("POST", url);
+      final imagepath1 = await http.MultipartFile.fromPath('bukti', file.path);
+      // print(imagepath);
+      request.fields['dari_tgl'] = dari_tgl.text;
+      request.fields['sampai_tgl'] = sampai_tgl.text;
+      request.files.add(imagepath1);
+
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+      request.headers['Content-Type'] = 'multipart/form-data';
+
+      final response = await request.send();
+      var responseData = await response.stream.toBytes();
+      var responseString = String.fromCharCodes(responseData);
+      print(responseString);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (BuildContext context) => const CutiPage(),
+        ),
+      );
+    } catch (e) {
+      print('Error uploading file: $e');
+    }
+  }
 
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -65,7 +131,7 @@ class _AddCutiPageState extends State<AddCutiPage> {
                                 filled: true,
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10)),
-                                hintText: 'Pilih Tanggal'),
+                                hintText: 'Dari Tanggal'),
                             validator: (value) {
                               if (value == false)
                                 return 'Silahkan Pilih Tanggal';
@@ -100,7 +166,7 @@ class _AddCutiPageState extends State<AddCutiPage> {
                                 filled: true,
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10)),
-                                hintText: 'Pilih Tanggal'),
+                                hintText: 'Sampai Tanggal'),
                             validator: (value) {
                               if (value == false)
                                 return 'Silahkan Pilih Tanggal';
@@ -125,18 +191,32 @@ class _AddCutiPageState extends State<AddCutiPage> {
                         const SizedBox(
                           height: 10,
                         ),
-                        containerImageWidget1(context),
+                        filePath == null
+                            ? Center(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    shadowColor:
+                                        const Color.fromARGB(255, 0, 0, 0),
+                                    elevation: 3,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(32.0)),
+                                    minimumSize: Size(300, 40), //////// HERE
+                                  ),
+                                  onPressed: openFilePicker,
+                                  child: Text("Open File Picker"),
+                                ),
+                              )
+                            : Text('$filePath'),
                         const SizedBox(
                           height: 10,
                         ),
                         InkWell(
                             onTap: () async {
                               if (_formKey.currentState!.validate()) {
-                               await HttpServiceCuti().addCuti(
-                                    dari_tgl,
-                                    sampai_tgl,
-                                    imagePath1,                                   
-                                    context);
+                                // print(filePath);
+                                await HttpServiceCuti().addCuti(
+                                    dari_tgl, sampai_tgl, filePath, context);
                               }
                             },
                             child: Container(
@@ -163,36 +243,4 @@ class _AddCutiPageState extends State<AddCutiPage> {
               ),
             )));
   }
-
-  Widget containerImageWidget1(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        final path = await chooseImage();
-        setState(() {
-          imagePath1 = path;
-        });
-      },
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        height: 200,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-            border: Border.all(color: Colors.black.withOpacity(.40)),
-            borderRadius: BorderRadius.circular(4),
-            image: imagePath1 != null
-                ? DecorationImage(
-                    image: FileImage(File(imagePath1!)), fit: BoxFit.cover)
-                : null),
-        child: Visibility(
-            visible: imagePath1 == null ? true : false,
-            child: const Text('Pilih')),
-      ),
-    );
-  }
-}
-
-Future<String?> chooseImage() async {
-  final ImagePicker picker = ImagePicker();
-  final image = await picker.pickImage(source: ImageSource.gallery);
-  return image!.path;
 }

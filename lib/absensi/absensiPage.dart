@@ -6,7 +6,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:simple_barcode_scanner/simple_barcode_scanner.dart';
+// import 'package:simple_barcode_scanner/simple_barcode_scanner.dart';
+import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 
 class AbsensiPage extends StatefulWidget {
   const AbsensiPage({
@@ -19,6 +20,7 @@ class AbsensiPage extends StatefulWidget {
 
 List _listsData = [];
 String? name = '';
+String? barcodeScanRes;
 
 class _AbsensiPageState extends State<AbsensiPage> {
   Future<dynamic> listKeluhan() async {
@@ -111,40 +113,37 @@ class _AbsensiPageState extends State<AbsensiPage> {
         onPressed: () async {
           SharedPreferences preferences = await SharedPreferences.getInstance();
           var token = preferences.getString('token');
-          var res = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SimpleBarcodeScannerPage(),
-              ));
-          setState(() {
-            if (res is String) {
-              print(res);
-            }
+          barcodeScanRes = await FlutterBarcodeScanner.scanBarcode(
+              '#ff6666', 'Cancel', true, ScanMode.BARCODE);
+          // print(barcodeScanRes);
+          // setState(() {
+          //   // if (res is String) {
+          //   //   print(res.toString());
+          //   // }
+          // });
+          // print(res);
+
+          var url = Uri.parse('${dotenv.env['url']}/absen');
+          final response = await http.post(url, headers: {
+            "Accept": "application/json",
+            "Authorization": "Bearer $token",
+          }, body: {
+            "status": '1',
+            "latitude": '-7.2905298',
+            "longitude": '109.0310344',
           });
-          print(res);
-          if (res) {
-            var url = Uri.parse('${dotenv.env['url']}/absen');
-            final response = await http.post(url, headers: {
-              "Accept": "application/json",
-              "Authorization": "Bearer $token",
-            }, body: {
-              "status": '1',
-              "latitude": '-7.2905298',
-              "longitude": '109.0310344',
+          // print(response.body);
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            print(data);
+            setState(() async {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (BuildContext context) => const AbsensiPage(),
+                ),
+              );
             });
-            // print(response.body);
-            if (response.statusCode == 200) {
-              final data = jsonDecode(response.body);
-              print(data);
-              setState(() async {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (BuildContext context) => const AbsensiPage(),
-                  ),
-                );
-              });
-            }
           }
         },
         tooltip: 'Increment',
